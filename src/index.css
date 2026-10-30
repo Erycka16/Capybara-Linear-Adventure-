@@ -1,0 +1,144 @@
+@import "tailwindcss";
+
+@layer base {
+  body {
+    font-family: 'Fredoka', 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+    touch-action: none;
+  }
+}
+
+/* Dynamic floating keyframes for Capybara flying phase */
+@keyframes capyFloatDynamic {
+  0%, 100% {
+    transform: translateY(0px) rotate(0deg) scale(1);
+  }
+  20% {
+    transform: translateY(-8px) rotate(1.5deg) scale(1.015);
+  }
+  45% {
+    transform: translateY(-2px) rotate(-1deg) scale(0.995);
+  }
+  70% {
+    transform: translateY(-12px) rotate(2.2deg) scale(1.02);
+  }
+  85% {
+    transform: translateY(-5px) rotate(0.5deg) scale(1.005);
+  }
+}
+
+@keyframes capyBreathe {
+  0%, 100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.03);
+  }
+}
+
+@keyframes orangePulseGlow {
+  0%, 100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.6));
+  }
+  50% {
+    transform: scale(1.12);
+    filter: drop-shadow(0 0 14px rgba(249, 115, 22, 0.95));
+  }
+}
+
+@keyframes starSpinFloat {
+  0% {
+    transform: translateY(0px) rotate(0deg);
+  }
+  50% {
+    transform: translateY(-6px) rotate(180deg);
+  }
+  100% {
+    transform: translateY(0px) rotate(360deg);
+  }
+}
+
+@keyframes stormCloudDrift {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+@keyframes capyPodiumJump {
+  0% {
+    transform: translateY(20px) scale(0.9, 1.1);
+    opacity: 0.6;
+  }
+  40% {
+    transform: translateY(-24px) scale(1.05, 0.95);
+    opacity: 1;
+  }
+  60% {
+    transform: translateY(0px) scale(0.95, 1.05);
+  }
+  80% {
+    transform: translateY(-8px) scale(1.02, 0.98);
+  }
+  100% {
+    transform: translateY(0px) scale(1, 1);
+  }
+}
+
+@keyframes propellerSpin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes trophyShine {
+  0%, 100% {
+    filter: drop-shadow(0 0 4px rgba(251, 191, 36, 0.6));
+    transform: rotate(0deg);
+  }
+  50% {
+    filter: drop-shadow(0 0 16px rgba(245, 158, 11, 1));
+    transform: rotate(-3deg) scale(1.05);
+  }
+}
+
+.animate-capy-podium-jump {
+  animation: capyPodiumJump 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards;
+}
+
+.animate-propeller-spin {
+  animation: propellerSpin 0.35s linear infinite;
+}
+
+.animate-trophy-shine {
+  animation: trophyShine 1.8s ease-in-out infinite;
+}
+
+.animate-capy-fly-dynamic {
+  animation: capyFloatDynamic 2.8s ease-in-out infinite;
+}
+
+.animate-capy-breathe {
+  animation: capyBreathe 2s ease-in-out infinite;
+}
+
+.animate-orange-pulse {
+  animation: orangePulseGlow 1.8s ease-in-out infinite;
+}
+
+.animate-star-float {
+  animation: starSpinFloat 3s linear infinite;
+}
+
+.animate-storm-drift {
+  animation: stormCloudDrift 2.2s ease-in-out infinite;
+}
+

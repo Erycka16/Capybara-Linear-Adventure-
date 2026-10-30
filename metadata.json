@@ -1,0 +1,8 @@
+{
+  "name": "Capybara Linear Adventure : Kembara Persamaan Linear Dua Pemboleh Ubah",
+  "description": "Game capybara terbang menunggang itik melepasi halangan jawapan kuiz akademik 3 tahap kesukaran.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
