@@ -160,12 +160,16 @@ export interface GameStats {
   currentQuestionIndex: number;
   totalQuestions: number;
 
-  // Level 1: exactly 2 minutes (120s) total timer
+  // Level 1: exactly 2 minutes (120s) total timer & review tracking
   level1TotalTimeLeft: number;
+  isLevel1ReviewPhase?: boolean;
+  level1WrongRemaining?: number;
 
-  // Level 2: 10s study timer
+  // Level 2: 1-minute (60s) study countdown timer
   level2Phase: Level2Phase;
   level2TimeLeft: number;
+  isLevel2ReviewPhase?: boolean;
+  level2WrongRemaining?: number;
 
   // Level 3: 4 doors progression
   level3DoorNumber: number; // 1 to 4

@@ -1,21 +1,26 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Level3ClassroomQuestion } from '../types/game';
+import { getActiveLevel3Data } from '../data/questions';
 import { sounds } from '../utils/audio';
 import { Key, Sparkles, CheckCircle2, ArrowRight, BookOpen, Lock, Unlock, Home } from 'lucide-react';
 
 interface ClassroomModalProps {
   question: Level3ClassroomQuestion;
+  currentDoorNum?: number;
   hearts: number;
   onDeductHeart: () => void;
   onSolveDoor: (doorNum: number) => void;
+  onDoorFailed: (reason: string) => void;
   onGoHome?: () => void;
 }
 
 export const ClassroomModal: React.FC<ClassroomModalProps> = ({
   question,
+  currentDoorNum = 1,
   hearts,
   onDeductHeart,
   onSolveDoor,
+  onDoorFailed,
   onGoHome,
 }) => {
   const [step, setStep] = useState<'EQUATION' | 'GRAPH' | 'KEY_EARNED'>('EQUATION');
@@ -61,8 +66,10 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
       setEqError(true);
       sounds.playWrong();
       onDeductHeart();
-      // "jangan paparkan jawapan sekiranya salah jawab"
-      setTimeout(() => setEqError(false), 1400);
+      // On wrong answer: deduct heart and fail door so player exits to sky and re-collects oranges!
+      setTimeout(() => {
+        onDoorFailed('Jawapan kurang tepat! Pintu tidak dapat dibuka (-1 Nyawa). Sila kutip semula 5 oren di langit untuk mencuba semula.');
+      }, 1300);
     }
   };
 
@@ -165,7 +172,7 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
         ctx.moveTo(toScreenX(0), toScreenY(6));
         ctx.lineTo(toScreenX(6), toScreenY(0));
       } else if (question.doorNumber === 2) {
-        ctx.moveTo(toScreenX(2), toScreenY(8));
+        ctx.moveTo(toScreenX(0), toScreenY(10));
         ctx.lineTo(toScreenX(10), toScreenY(0));
       } else if (question.doorNumber === 3) {
         ctx.moveTo(toScreenX(0), toScreenY(8));
@@ -277,7 +284,10 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
     const coordY = Math.round(rawY);
     const [targetX, targetY] = question.correctPoint;
 
-    if (coordX === targetX && coordY === targetY) {
+    const tolerance = question.xRange[1] > 15 ? 1.1 : 0.8;
+    const isClose = Math.abs(rawX - targetX) <= tolerance && Math.abs(rawY - targetY) <= tolerance;
+
+    if (isClose || (coordX === targetX && coordY === targetY)) {
       setPlottedPoint([targetX, targetY]);
       setShowLines(true);
       setGraphError(null);
@@ -288,11 +298,12 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
         sounds.playKeyObtain();
       }, 1200);
     } else {
-      // "jangan paparkan jawapan sekiranya salah jawab"
-      setGraphError(`Titik (${coordX}, ${coordY}) kurang tepat! -1 Nyawa. Selesaikan semula persamaan linear.`);
+      setGraphError(`Titik (${coordX}, ${coordY}) kurang tepat! -1 Nyawa. Pintu tidak dapat dibuka.`);
       sounds.playWrong();
       onDeductHeart();
-      setTimeout(() => setGraphError(null), 2500);
+      setTimeout(() => {
+        onDoorFailed(`Titik (${coordX}, ${coordY}) kurang tepat! Pintu tidak dapat dibuka (-1 Nyawa). Sila kutip semula 5 oren di langit untuk mencuba semula.`);
+      }, 1400);
     }
   };
 
@@ -322,7 +333,10 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
     setHoverPoint([Math.round(rawX), Math.round(rawY)]);
   };
 
-  // Determine scene specific styling matching the user's uploaded image:
+  // All 4 doors from Level 3
+  const allDoors = getActiveLevel3Data();
+
+  // Determine scene specific styling & theme description (so question is not repeated twice!)
   const themeStyles = {
     library: {
       bg: 'bg-amber-100/90',
@@ -330,7 +344,8 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
       doorBorder: 'border-amber-600',
       archIcon: '📖',
       bannerTitle: 'Pintu 1 : Kamus Puan Siti',
-      tagText: 'Ilmu Membuka Dunia 📖',
+      tagText: 'Tema: Perpustakaan & Hadiah Kamus 📖',
+      themeDesc: 'Puan Siti ingin menghadiahkan kamus bahasa Melayu dan Inggeris kepada muridnya. Bantu Capy memodelkan persamaan daripada situasi ini dan plotkan graf persilangan untuk memperoleh Kunci Emas 🗝️!',
     },
     school: {
       bg: 'bg-sky-100/90',
@@ -338,7 +353,8 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
       doorBorder: 'border-blue-600',
       archIcon: '🚻',
       bannerTitle: 'Pintu 2 : 20 Murid Lelaki & Perempuan',
-      tagText: 'Bersama Membina Kejayaan 💙',
+      tagText: 'Tema: Bilik Sekolah & Kumpulan Murid 🚻',
+      themeDesc: 'Seramai 20 orang murid lelaki dan perempuan dibahagikan sama rata kepada dua kumpulan. Bantu Capy menentukan bilangan murid dalam setiap kumpulan dan mencari koordinat persilangan graf!',
     },
     museum: {
       bg: 'bg-purple-100/90',
@@ -346,7 +362,8 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
       doorBorder: 'border-purple-600',
       archIcon: '🏛️',
       bannerTitle: 'Pintu 3 : Tiket Muzium Danish & Alia',
-      tagText: 'Muzium Ilmu Warisan Kita 🏛️',
+      tagText: 'Tema: Lawatan Muzium Danish & Alia 🏛️',
+      themeDesc: 'Danish dan Alia membeli 8 keping tiket muzium dengan harga berbeza bagi dewasa dan kanak-kanak. Bantu Capy memodelkan kos bayaran dan mencari titik persilangan graf!',
     },
     sports: {
       bg: 'bg-rose-100/90',
@@ -354,7 +371,8 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
       doorBorder: 'border-rose-600',
       archIcon: '🏃',
       bannerTitle: 'Pintu 4 : Hari Sukan Pasukan Merah & Biru',
-      tagText: 'MERAH vs BIRU 🏆',
+      tagText: 'Tema: Padang Hari Sukan Sekolah (Merah vs Biru) 🏃',
+      themeDesc: 'Seramai 24 orang murid menyertai Pasukan Merah dan Pasukan Biru sebelum berlaku pertukaran ahli. Bantu Capy menyelesaikan cabaran terakhir Level 3 untuk Kemenangan Penuh!',
     },
   }[question.theme];
 
@@ -391,6 +409,57 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
           </div>
         </div>
 
+        {/* 4 PINTU STATUS OVERVIEW BAR (Pintu 1, Pintu 2, Pintu 3, Pintu 4) */}
+        <div className="bg-amber-950/5 border-b-2 border-amber-900/15 px-4 sm:px-6 py-2.5">
+          <div className="flex items-center justify-between gap-2 mb-1.5">
+            <span className="text-[11px] font-black uppercase tracking-wider text-amber-950 flex items-center gap-1.5">
+              <span>🚪 TAHAP 3: 4 PINTU BILIK PEMBELAJARAN</span>
+            </span>
+            <span className="text-[11px] font-extrabold text-amber-800">
+              Kemajuan: Pintu {currentDoorNum} / 4
+            </span>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+            {allDoors.map((d) => {
+              const isCurrent = d.doorNumber === question.doorNumber;
+              const isCompleted = d.doorNumber < currentDoorNum;
+
+              const doorIcon = d.doorNumber === 1 ? '📖' : d.doorNumber === 2 ? '🚻' : d.doorNumber === 3 ? '🏛️' : '🏃';
+              const shortTitle = d.doorNumber === 1 ? 'Kamus' : d.doorNumber === 2 ? '20 Murid' : d.doorNumber === 3 ? 'Tiket Muzium' : 'Hari Sukan';
+
+              return (
+                <div
+                  key={d.doorNumber}
+                  className={`px-3 py-1.5 rounded-xl border-2 flex items-center justify-between transition-all ${
+                    isCurrent
+                      ? 'bg-amber-100 border-amber-600 shadow-xs ring-2 ring-amber-400'
+                      : isCompleted
+                      ? 'bg-emerald-50 border-emerald-400 text-emerald-950'
+                      : 'bg-slate-100/90 border-slate-300 opacity-60 text-slate-600'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 overflow-hidden">
+                    <span className="text-sm shrink-0">{doorIcon}</span>
+                    <div className="text-left truncate">
+                      <div className="text-[10px] font-black uppercase text-amber-950 truncate">
+                        Pintu {d.doorNumber}
+                      </div>
+                      <div className="text-[11px] font-bold text-slate-800 truncate">
+                        {shortTitle}
+                      </div>
+                    </div>
+                  </div>
+
+                  <span className="text-[11px] font-black shrink-0 ml-1">
+                    {isCompleted ? '🗝️ Selesai' : isCurrent ? '✏️ Aktif' : '🔒 Kunci'}
+                  </span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
         {/* The Scene Canvas & Workstation matching the uploaded picture! */}
         <div className="p-4 sm:p-6 overflow-y-auto space-y-4">
           {/* Top Visual Room Art Banner */}
@@ -412,7 +481,7 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
                   {themeStyles.tagText}
                 </span>
                 <p className="text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed max-w-md">
-                  {question.story}
+                  {themeStyles.themeDesc}
                 </p>
               </div>
             </div>
@@ -471,21 +540,30 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
             </div>
           </div>
 
-          {/* STEP 1: BENTUKKAN PERSAMAAN LINEAR */}
+          {/* STEP 1: BENTUKKAN PERSAMAAN LINEAR - PAPARKAN SEMUA SOALAN DENGAN JELAS */}
           {step === 'EQUATION' && (
-            <div className="space-y-3">
-              <h3 className="text-sm font-black text-slate-800">
-                Pilih pasangan persamaan linear yang tepat bagi situasi di atas:
-              </h3>
+            <div className="space-y-3.5">
+              <div className="bg-amber-50/80 border-2 border-amber-200 p-3.5 rounded-2xl">
+                <div className="text-xs font-black text-amber-950 uppercase tracking-wide mb-1">
+                  📋 Situasi Masalah & Soalan:
+                </div>
+                <p className="text-xs sm:text-sm font-semibold text-slate-800 leading-relaxed">
+                  {question.story}
+                </p>
+                <div className="mt-2 text-xs sm:text-sm font-extrabold text-blue-900 bg-blue-100/90 py-1 px-2.5 rounded-xl inline-block border border-blue-300">
+                  ❓ Pilih pasangan persamaan linear yang tepat bagi situasi di atas:
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                 {question.equationOptions.map((opt, idx) => {
                   const isSelected = selectedEqIdx === idx;
+                  const optionLabel = String.fromCharCode(65 + idx); // A, B, C
                   return (
                     <button
                       key={idx}
                       onClick={() => handleSelectEquation(idx)}
-                      className={`p-4 rounded-2xl border-2 font-mono font-bold text-sm sm:text-base transition-all text-center cursor-pointer active:scale-95 shadow-sm ${
+                      className={`p-4 rounded-2xl border-2 font-mono font-bold text-sm sm:text-base transition-all text-center cursor-pointer active:scale-95 shadow-sm flex flex-col items-center justify-center gap-1.5 ${
                         isSelected && !eqError
                           ? 'bg-emerald-100 border-emerald-500 text-emerald-950 ring-2 ring-emerald-400'
                           : isSelected && eqError
@@ -493,15 +571,18 @@ export const ClassroomModal: React.FC<ClassroomModalProps> = ({
                           : 'bg-white hover:bg-amber-50 border-slate-300 text-slate-800 hover:border-amber-500'
                       }`}
                     >
-                      {opt}
+                      <span className="text-[11px] font-sans font-black px-2 py-0.5 rounded-full bg-slate-200/80 text-slate-700">
+                        Pilihan {optionLabel}
+                      </span>
+                      <span>{opt}</span>
                     </button>
                   );
                 })}
               </div>
 
               {eqError && (
-                <div className="p-2.5 bg-rose-50 text-rose-800 border border-rose-300 rounded-xl text-xs font-bold text-center">
-                  Jawapan kurang tepat! 1 nyawa ditolak. Kira semula dan pilih persamaan yang betul.
+                <div className="p-3 bg-rose-100 text-rose-900 border-2 border-rose-400 rounded-2xl text-xs sm:text-sm font-black text-center shadow-sm animate-pulse">
+                  ❌ Jawapan kurang tepat! 1 nyawa ditolak. Pintu bilik tidak dapat dibuka. Anda akan kembali ke langit untuk mengutip semula 5 oren.
                 </div>
               )}
             </div>

@@ -142,3 +142,45 @@
   animation: stormCloudDrift 2.2s ease-in-out infinite;
 }
 
+/* Energetic shake & alert glow on orange counter when a heart is lost */
+@keyframes orangeCounterShake {
+  0% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+  }
+  12% {
+    transform: translate(-10px, -4px) rotate(-8deg) scale(1.22);
+    filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0.95));
+  }
+  24% {
+    transform: translate(10px, 4px) rotate(8deg) scale(1.25);
+    filter: drop-shadow(0 0 20px rgba(249, 115, 22, 1));
+  }
+  36% {
+    transform: translate(-8px, 3px) rotate(-6deg) scale(1.2);
+    filter: drop-shadow(0 0 16px rgba(239, 68, 68, 0.85));
+  }
+  48% {
+    transform: translate(8px, -3px) rotate(6deg) scale(1.18);
+  }
+  60% {
+    transform: translate(-6px, 2px) rotate(-4deg) scale(1.14);
+  }
+  72% {
+    transform: translate(5px, -2px) rotate(3deg) scale(1.1);
+  }
+  84% {
+    transform: translate(-3px, 1px) rotate(-1.5deg) scale(1.05);
+  }
+  92% {
+    transform: translate(2px, -1px) rotate(1deg) scale(1.02);
+  }
+  100% {
+    transform: translate(0, 0) rotate(0deg) scale(1);
+    filter: none;
+  }
+}
+
+.animate-orange-counter-shake {
+  animation: orangeCounterShake 1.2s cubic-bezier(0.36, 0.07, 0.19, 0.97) both;
+}
+

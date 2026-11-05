@@ -1,0 +1,91 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="mbg" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#38BDF8"/>
+      <stop offset="100%" stopColor="#0284C7"/>
+    </linearGradient>
+    <linearGradient id="fur" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#D49B6A"/>
+      <stop offset="60%" stopColor="#BA7D49"/>
+      <stop offset="100%" stopColor="#9C6234"/>
+    </linearGradient>
+    <linearGradient id="muzzle" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#E5B285"/>
+      <stop offset="100%" stopColor="#C48856"/>
+    </linearGradient>
+    <linearGradient id="cap" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stopColor="#38BDF8"/>
+      <stop offset="100%" stopColor="#0284C7"/>
+    </linearGradient>
+    <linearGradient id="propeller" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stopColor="#FDE047"/>
+      <stop offset="100%" stopColor="#F59E0B"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Full-bleed background for maskable icon -->
+  <rect width="512" height="512" fill="url(#mbg)"/>
+
+  <!-- Clouds in safe zone -->
+  <g fill="#FFFFFF" opacity="0.3">
+    <ellipse cx="140" cy="180" rx="40" ry="20"/>
+    <ellipse cx="370" cy="210" rx="45" ry="22"/>
+  </g>
+
+  <!-- Mascot inside 80% Safe Zone (scaled and centered) -->
+  <g transform="translate(51, 51) scale(0.8)">
+    <!-- Body -->
+    <path d="M160 380 C150 430, 160 480, 256 480 C352 480, 362 430, 352 380 C340 330, 172 330, 160 380 Z" fill="url(#fur)"/>
+    <ellipse cx="256" cy="430" rx="60" ry="36" fill="#F5D8B5" opacity="0.9"/>
+
+    <!-- Head -->
+    <path d="M165 240 C155 180, 185 130, 256 125 C327 130, 357 180, 347 240 C350 280, 335 325, 305 340 C280 350, 232 350, 207 340 C177 325, 162 280, 165 240 Z" fill="url(#fur)" stroke="#5C3417" stroke-width="8" stroke-linejoin="round"/>
+
+    <!-- Ears -->
+    <path d="M175 165 C150 155, 145 190, 165 205 Z" fill="#8B5127" stroke="#5C3417" stroke-width="6"/>
+    <ellipse cx="165" cy="185" rx="6" ry="10" fill="#F472B6" opacity="0.75"/>
+
+    <path d="M337 165 C362 155, 367 190, 347 205 Z" fill="#8B5127" stroke="#5C3417" stroke-width="6"/>
+    <ellipse cx="347" cy="185" rx="6" ry="10" fill="#F472B6" opacity="0.75"/>
+
+    <!-- Snout / Muzzle -->
+    <ellipse cx="256" cy="265" rx="58" ry="42" fill="url(#muzzle)" stroke="#783E18" stroke-width="5"/>
+
+    <!-- Nose -->
+    <path d="M236 245 C244 238, 268 238, 276 245 C280 252, 264 260, 256 260 C248 260, 232 252, 236 245 Z" fill="#2E1505"/>
+    <ellipse cx="247" cy="248" rx="3.5" ry="4" fill="#140702"/>
+    <ellipse cx="265" cy="248" rx="3.5" ry="4" fill="#140702"/>
+
+    <!-- Happy Mouth -->
+    <path d="M256 260 L256 272 M240 272 Q256 286 272 272" stroke="#2E1505" stroke-width="6" stroke-linecap="round" fill="none"/>
+    <path d="M246 274 Q256 286 266 274 Z" fill="#F43F5E"/>
+
+    <!-- Rosy Cheeks -->
+    <ellipse cx="195" cy="265" rx="18" ry="12" fill="#FB7185" opacity="0.85"/>
+    <ellipse cx="317" cy="265" rx="18" ry="12" fill="#FB7185" opacity="0.85"/>
+
+    <!-- Happy Eyes (◠ ‿ ◠) -->
+    <path d="M200 225 Q215 208 230 225" stroke="#271206" stroke-width="8" stroke-linecap="round" fill="none"/>
+    <path d="M282 225 Q297 208 312 225" stroke="#271206" stroke-width="8" stroke-linecap="round" fill="none"/>
+
+    <!-- Blue Aviator Cap -->
+    <path d="M188 155 C192 105, 320 105, 324 155 Z" fill="url(#cap)" stroke="#075985" stroke-width="7"/>
+    <path d="M180 155 C215 164, 297 164, 332 155" stroke="#0369A1" stroke-width="10" stroke-linecap="round"/>
+
+    <!-- Propeller Shaft -->
+    <rect x="251" y="80" width="10" height="25" rx="4" fill="#0369A1"/>
+    <circle cx="256" cy="80" r="10" fill="#F59E0B" stroke="#B45309" stroke-width="3"/>
+
+    <!-- Spinning Propeller Blades -->
+    <ellipse cx="206" cy="80" rx="45" ry="12" fill="url(#propeller)" stroke="#B45309" stroke-width="3"/>
+    <ellipse cx="306" cy="80" rx="45" ry="12" fill="url(#propeller)" stroke="#B45309" stroke-width="3"/>
+    <circle cx="256" cy="80" r="7" fill="#FEF08A"/>
+
+    <!-- Floating Orange with leaf -->
+    <g transform="translate(380, 360)">
+      <circle cx="0" cy="0" r="32" fill="#F97316" stroke="#C2410C" stroke-width="4"/>
+      <path d="M-8 -32 C-2 -46, 18 -42, 16 -30 C12 -24, 0 -26, -8 -32 Z" fill="#22C55E" stroke="#15803D" stroke-width="3"/>
+      <circle cx="-10" cy="-10" r="5" fill="#FED7AA" opacity="0.8"/>
+    </g>
+  </g>
+</svg>

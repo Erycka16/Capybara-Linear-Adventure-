@@ -15,9 +15,10 @@ interface GameCanvasProps {
   onVictory: (finalStats: GameStats) => void;
   onShowFeedback: (text: string, isCorrect: boolean) => void;
   onEnterClassroom: (doorNumber: number) => void;
-  onTriggerLevel2Study: () => void;
+  onTriggerLevel2Study: (isReview?: boolean) => void;
   level2Phase: Level2Phase;
   level3DoorNumber: number;
+  isClassroomOpen?: boolean;
 }
 
 export const GameCanvas: React.FC<GameCanvasProps> = ({
@@ -35,6 +36,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
   onTriggerLevel2Study,
   level2Phase,
   level3DoorNumber,
+  isClassroomOpen = false,
 }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
 
@@ -66,6 +68,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
   const level3DoorRef = useRef(level3DoorNumber);
   level3DoorRef.current = level3DoorNumber;
+
+  const isClassroomOpenRef = useRef(isClassroomOpen);
+  isClassroomOpenRef.current = isClassroomOpen;
 
   const initialScoreRef = useRef(initialScore);
   const initialHeartsRef = useRef(initialHearts);
@@ -124,7 +129,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let maxStreak = 0;
     let correctCount = 0;
     let wrongCount = 0;
-    let qIndex = 0;
+
+    // Level 1 dynamic question sequence & wrong question review tracking (1 chance only in review!)
+    let l1Sequence: number[] = [0, 1, 2, 3, 4];
+    let l1SeqIndex = 0;
+    let l1WrongQueue: number[] = [];
+    let isL1Reviewing = false;
+
+    // Level 2 dynamic question sequence & wrong question review tracking
+    let l2Sequence: number[] = [0, 1, 2, 3, 4];
+    let l2SeqIndex = 0;
+    let l2WrongQueue: number[] = [];
+    let isL2Reviewing = false;
 
     // Level 1: Exactly 2 minutes (120 seconds) total countdown timer as requested!
     let l1TotalTimeLeft = 120;
@@ -134,6 +150,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
     let flashTimer = 0;
 
     let orangesCollected = 0;
+    let wasClassroomOpen = false;
     let gates: Gate[] = [];
     let oranges: OrangeFruit[] = [];
     let bonusStars: BonusStar[] = [];
@@ -310,6 +327,61 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       }
     };
 
+    const spawnLevel3Door = (doorNum: number) => {
+      const curH = window.innerHeight;
+      const curW = window.innerWidth;
+      const topPlayArea = 160;
+      const botPlayArea = curH - 70;
+      const availableHeight = botPlayArea - topPlayArea;
+
+      const l3Questions = getActiveLevel3Data();
+      const classroomQ = l3Questions[(doorNum - 1) % l3Questions.length];
+
+      const doorHeight = Math.min(320, availableHeight - 40);
+      const doorY = topPlayArea + (availableHeight - doorHeight) / 2;
+      const doorX = curW + 950;
+
+      orangesCollected = 0;
+      gates = [
+        {
+          id: `l3_door_${doorNum}_${Date.now()}`,
+          title: classroomQ.doorTitle,
+          subtitle: 'Kumpul 5 Oren Untuk Masuk',
+          options: ['Masuk Bilik Kelas'],
+          correctIndex: 0,
+          x: doorX,
+          width: 190,
+          choices: [
+            {
+              text: `🚪 MASUK ${classroomQ.doorTitle}`,
+              isCorrect: true,
+              y: doorY,
+              height: doorHeight,
+              hit: false,
+            },
+          ],
+          passed: false,
+          resolved: false,
+          pulseOffset: 0,
+          isLocked: true,
+          isClassroomDoor: true,
+          doorNumber: doorNum,
+        },
+      ];
+
+      oranges = [];
+      addOrangesBatch(player.x + 80, 12);
+      addOrangesBatch(doorX + 220, 16);
+
+      callbacksRef.current.onUpdateStats((prev) => ({
+        ...prev,
+        score: cumulativeScore,
+        orangesCollected: 0,
+        level3DoorNumber: doorNum,
+        currentQuestionIndex: doorNum - 1,
+      }));
+    };
+
     // Spawn elements according to Level (Gates, Oranges, Bonus Stars, Storm Clouds)
     const spawnWorldElements = (index: number) => {
       const curH = window.innerHeight;
@@ -321,10 +393,10 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       // 1. GATES
       const l1Questions = getActiveLevel1Data();
       const l2Questions = getActiveLevel2Data();
-      const l3Questions = getActiveLevel3Data();
 
       if (levelConfig.level === 1) {
-        const q = l1Questions[index % l1Questions.length];
+        const activeQIndex = l1Sequence[l1SeqIndex % l1Sequence.length] ?? 0;
+        const q = l1Questions[activeQIndex % l1Questions.length];
         const numChoices = q.options.length;
         const choiceHeight = Math.min(100, (availableHeight - (numChoices + 1) * 16) / numChoices);
         const totalBlockHeight = numChoices * choiceHeight + (numChoices - 1) * 16;
@@ -340,13 +412,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
         gates = [
           {
-            id: `l1_gate_${index}_${Date.now()}`,
-            title: `${q.eq1} & ${q.eq2}`,
-            subtitle: 'Pilih Titik (x, y)',
+            id: `l1_gate_${activeQIndex}_${Date.now()}`,
+            title: isL1Reviewing ? `${q.eq1} & ${q.eq2} (Pembetulan)` : `${q.eq1} & ${q.eq2}`,
+            subtitle: isL1Reviewing ? 'Pilih Titik (1 Peluang Sahaja)' : 'Pilih Titik (x, y)',
             options: q.options,
             correctIndex: q.correctIndex,
             x: curW + levelConfig.spawnDistance,
-            width: 180,
+            width: 190,
             choices,
             passed: false,
             resolved: false,
@@ -357,7 +429,8 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         oranges = [];
       } else if (levelConfig.level === 2) {
         // LEVEL 2: Wide & clear gate choices that neatly fit the full equations!
-        const q = l2Questions[index % l2Questions.length];
+        const activeQIndex = l2Sequence[l2SeqIndex % l2Sequence.length] ?? 0;
+        const q = l2Questions[activeQIndex % l2Questions.length];
         const numChoices = q.options.length;
         const choiceHeight = Math.min(105, (availableHeight - (numChoices + 1) * 16) / numChoices);
         const totalBlockHeight = numChoices * choiceHeight + (numChoices - 1) * 16;
@@ -375,9 +448,9 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
         gates = [
           {
-            id: `l2_gate_${index}_${Date.now()}`,
-            title: 'Persamaan Linear',
-            subtitle: 'Pilih Model Persamaan',
+            id: `l2_gate_${activeQIndex}_${Date.now()}`,
+            title: isL2Reviewing ? 'Persamaan Linear (Pembetulan)' : 'Persamaan Linear',
+            subtitle: isL2Reviewing ? 'Pilih Jawapan Tepat' : 'Pilih Model Persamaan',
             options: q.options,
             correctIndex: q.correctIndex,
             x: curW + levelConfig.spawnDistance,
@@ -392,45 +465,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         oranges = [];
       } else {
         // LEVEL 3: 4 Themed Doors & continuous oranges everywhere!
-        const doorNum = level3DoorRef.current;
-        const classroomQ = l3Questions[(doorNum - 1) % l3Questions.length];
-
-        const doorHeight = Math.min(320, availableHeight - 40);
-        const doorY = topPlayArea + (availableHeight - doorHeight) / 2;
-        const isLocked = orangesCollected < 5;
-
-        const doorX = curW + levelConfig.spawnDistance + 240;
-
-        gates = [
-          {
-            id: `l3_door_${doorNum}_${Date.now()}`,
-            title: classroomQ.doorTitle,
-            subtitle: 'Masuk Bilik Kelas',
-            options: ['Masuk Bilik Kelas'],
-            correctIndex: 0,
-            x: doorX,
-            width: 190,
-            choices: [
-              {
-                text: `🚪 MASUK ${classroomQ.doorTitle}`,
-                isCorrect: true,
-                y: doorY,
-                height: doorHeight,
-                hit: false,
-              },
-            ],
-            passed: false,
-            resolved: false,
-            pulseOffset: Math.random() * Math.PI,
-            isLocked,
-            isClassroomDoor: true,
-            doorNumber: doorNum,
-          },
-        ];
-
-        oranges = [];
-        addOrangesBatch(player.x + 80, 12);
-        addOrangesBatch(doorX + 220, 16);
+        spawnLevel3Door(level3DoorRef.current || 1);
       }
 
       // 2. EXTRA BONUS STARS (Kutip Skor Tambahan +50 ⭐) across all levels!
@@ -490,8 +525,20 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
       if (flashTimer > 0) flashTimer = Math.max(0, flashTimer - dt * 2);
 
       const isLevel2Paused = levelConfig.level === 2 && level2PhaseRef.current === 'STUDY';
+      const isClassroomPaused = levelConfig.level === 3 && isClassroomOpenRef.current;
+      const isGameplayPaused = isLevel2Paused || isClassroomPaused;
 
       if (status === 'PLAYING') {
+        if (levelConfig.level === 3) {
+          if (wasClassroomOpen && !isClassroomOpenRef.current) {
+            // Player returned from classroom (either solved to next door or failed to retry)
+            const activeDoor = level3DoorRef.current || 1;
+            spawnLevel3Door(activeDoor);
+            player.invulnerableTime = 1.2;
+          }
+          wasClassroomOpen = !!isClassroomOpenRef.current;
+        }
+
         // Level 1: 2-minute Countdown Timer (120s)
         if (levelConfig.level === 1) {
           l1TotalTimeLeft = Math.max(0, l1TotalTimeLeft - dt);
@@ -507,7 +554,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                 wrongCount,
                 hearts: 0,
                 maxHearts,
-                currentQuestionIndex: qIndex,
+                currentQuestionIndex: l1Sequence[l1SeqIndex] ?? 0,
                 totalQuestions: levelConfig.targetQuestions,
                 level1TotalTimeLeft: 0,
                 level2Phase: 'FLYING',
@@ -522,13 +569,13 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           }
         }
 
-        const isSpeeding = (isSpeedBoostRef.current || keys.speedKey) && !isLevel2Paused;
-        const isSlowing = (isSlowBoostRef.current || keys.slowKey) && !isLevel2Paused;
+        const isSpeeding = (isSpeedBoostRef.current || keys.speedKey) && !isGameplayPaused;
+        const isSlowing = (isSlowBoostRef.current || keys.slowKey) && !isGameplayPaused;
 
         player.isSpeeding = isSpeeding;
         player.isSlowing = isSlowing;
 
-        const effectiveSpeed = isLevel2Paused
+        const effectiveSpeed = isGameplayPaused
           ? 0
           : isSpeeding
           ? levelConfig.boostFlightSpeed
@@ -539,15 +586,17 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
         if (isSpeeding) createSpeedLines();
 
         // Player physics
-        if (keys.up) player.vy -= 740 * dt;
-        else if (keys.down) player.vy += 660 * dt;
+        if (!isGameplayPaused) {
+          if (keys.up) player.vy -= 740 * dt;
+          else if (keys.down) player.vy += 660 * dt;
 
-        if (isTouchingRef.current && touchTargetYRef.current !== null) {
-          const dy = touchTargetYRef.current - player.y;
-          player.vy += Math.sign(dy) * Math.min(Math.abs(dy) * 8.5, 460) * dt;
+          if (isTouchingRef.current && touchTargetYRef.current !== null) {
+            const dy = touchTargetYRef.current - player.y;
+            player.vy += Math.sign(dy) * Math.min(Math.abs(dy) * 8.5, 460) * dt;
+          }
         }
 
-        if (isLevel2Paused) {
+        if (isGameplayPaused) {
           const hoverY = curH * 0.5 + Math.sin(currentTime * 0.003) * 15;
           player.y += (hoverY - player.y) * 0.05;
           player.vy = 0;
@@ -634,7 +683,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                     wrongCount,
                     hearts: 0,
                     maxHearts,
-                    currentQuestionIndex: qIndex,
+                    currentQuestionIndex: levelConfig.level === 2 ? (l2Sequence[l2SeqIndex] ?? 0) : (l1Sequence[l1SeqIndex] ?? 0),
                     totalQuestions: levelConfig.targetQuestions,
                     level1TotalTimeLeft: l1TotalTimeLeft,
                     level2Phase: level2PhaseRef.current,
@@ -741,13 +790,221 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
           } else {
             // LEVEL 1 & 2: Choice Gates Handling
             if (!gate.resolved && gate.x + gate.width < playerBackX) {
-              gate.x = curW + levelConfig.spawnDistance * 0.85;
-              gate.resolved = false;
               if (levelConfig.level === 2) {
-                callbacksRef.current.onTriggerLevel2Study();
-                callbacksRef.current.onShowFeedback('Soalan terlepas! Diberi 10 saat meneliti dan cuba lagi.', false);
-              } else {
-                callbacksRef.current.onShowFeedback('Terlepas gerbang! Cuba lagi.', false);
+                gate.resolved = true;
+                if (isL2Reviewing) {
+                  // Review mode: 1 chance only!
+                  callbacksRef.current.onShowFeedback(
+                    'Peluang pembetulan tamat untuk soalan ini (soalan terlepas).',
+                    false
+                  );
+                  l2SeqIndex++;
+                  if (l2SeqIndex >= l2Sequence.length) {
+                    sounds.playVictory();
+                    callbacksRef.current.onVictory({
+                      score: cumulativeScore,
+                      streak,
+                      maxStreak,
+                      correctCount,
+                      wrongCount,
+                      hearts,
+                      maxHearts,
+                      currentQuestionIndex: l2Sequence[l2Sequence.length - 1] ?? 4,
+                      totalQuestions: levelConfig.targetQuestions,
+                      level1TotalTimeLeft: l1TotalTimeLeft,
+                      level2Phase: level2PhaseRef.current,
+                      level2TimeLeft: 0,
+                      level3DoorNumber: 1,
+                      orangesCollected,
+                      hasKey: false,
+                      isLevel2ReviewPhase: false,
+                      level2WrongRemaining: 0,
+                    });
+                    return;
+                  } else {
+                    level2PhaseRef.current = 'STUDY';
+                    player.vy = 0;
+                    callbacksRef.current.onTriggerLevel2Study(true);
+                    spawnWorldElements(l2SeqIndex);
+                  }
+                } else {
+                  // Round 1: queue for review
+                  const missedQIndex = l2Sequence[l2SeqIndex];
+                  if (!l2WrongQueue.includes(missedQIndex)) {
+                    l2WrongQueue.push(missedQIndex);
+                  }
+                  callbacksRef.current.onShowFeedback(
+                    'Soalan terlepas! Soalan ini dimasukkan ke sesi pembetulan di akhir tahap.',
+                    false
+                  );
+                  l2SeqIndex++;
+                  if (l2SeqIndex >= l2Sequence.length) {
+                    if (l2WrongQueue.length > 0) {
+                      isL2Reviewing = true;
+                      l2Sequence = [...l2WrongQueue];
+                      l2WrongQueue = [];
+                      l2SeqIndex = 0;
+                      callbacksRef.current.onShowFeedback(
+                        `🔄 Sesi Pembetulan (1 Peluang Sahaja): Jawab semula ${l2Sequence.length} soalan yang salah tadi!`,
+                        true
+                      );
+                      level2PhaseRef.current = 'STUDY';
+                      player.vy = 0;
+                      callbacksRef.current.onTriggerLevel2Study(true);
+                      spawnWorldElements(0);
+                    } else {
+                      sounds.playVictory();
+                      callbacksRef.current.onVictory({
+                        score: cumulativeScore,
+                        streak,
+                        maxStreak,
+                        correctCount,
+                        wrongCount,
+                        hearts,
+                        maxHearts,
+                        currentQuestionIndex: l2Sequence[0] ?? 0,
+                        totalQuestions: levelConfig.targetQuestions,
+                        level1TotalTimeLeft: l1TotalTimeLeft,
+                        level2Phase: level2PhaseRef.current,
+                        level2TimeLeft: 0,
+                        level3DoorNumber: 1,
+                        orangesCollected,
+                        hasKey: false,
+                        isLevel2ReviewPhase: false,
+                        level2WrongRemaining: 0,
+                      });
+                      return;
+                    }
+                  } else {
+                    level2PhaseRef.current = 'STUDY';
+                    player.vy = 0;
+                    callbacksRef.current.onTriggerLevel2Study(false);
+                    spawnWorldElements(l2SeqIndex);
+                  }
+                }
+
+                callbacksRef.current.onUpdateStats({
+                  score: cumulativeScore,
+                  streak,
+                  maxStreak,
+                  correctCount,
+                  wrongCount,
+                  hearts,
+                  maxHearts,
+                  currentQuestionIndex: l2Sequence[l2SeqIndex % l2Sequence.length] ?? 0,
+                  totalQuestions: levelConfig.targetQuestions,
+                  level1TotalTimeLeft: l1TotalTimeLeft,
+                  level2Phase: level2PhaseRef.current,
+                  level2TimeLeft: level2PhaseRef.current === 'STUDY' ? (isL2Reviewing ? 30 : 60) : 0,
+                  level3DoorNumber: 1,
+                  orangesCollected,
+                  hasKey: false,
+                  isLevel2ReviewPhase: isL2Reviewing,
+                  level2WrongRemaining: l2WrongQueue.length + (isL2Reviewing ? Math.max(0, l2Sequence.length - l2SeqIndex) : 0),
+                });
+              } else if (levelConfig.level === 1) {
+                gate.resolved = true;
+                if (isL1Reviewing) {
+                  // Review mode: 1 chance only!
+                  callbacksRef.current.onShowFeedback(
+                    'Peluang pembetulan tamat untuk soalan ini (gerbang terlepas).',
+                    false
+                  );
+                  l1SeqIndex++;
+                  if (l1SeqIndex >= l1Sequence.length) {
+                    sounds.playVictory();
+                    callbacksRef.current.onVictory({
+                      score: cumulativeScore,
+                      streak,
+                      maxStreak,
+                      correctCount,
+                      wrongCount,
+                      hearts,
+                      maxHearts,
+                      currentQuestionIndex: l1Sequence[l1Sequence.length - 1] ?? 4,
+                      totalQuestions: levelConfig.targetQuestions,
+                      level1TotalTimeLeft: l1TotalTimeLeft,
+                      level2Phase: level2PhaseRef.current,
+                      level2TimeLeft: 0,
+                      level3DoorNumber: 1,
+                      orangesCollected,
+                      hasKey: false,
+                      isLevel1ReviewPhase: false,
+                      level1WrongRemaining: 0,
+                    });
+                    return;
+                  } else {
+                    spawnWorldElements(l1SeqIndex);
+                  }
+                } else {
+                  // Round 1: queue for review, do not stick on same question!
+                  const missedQIndex = l1Sequence[l1SeqIndex];
+                  if (!l1WrongQueue.includes(missedQIndex)) {
+                    l1WrongQueue.push(missedQIndex);
+                  }
+                  callbacksRef.current.onShowFeedback(
+                    'Soalan terlepas! Soalan ini dimasukkan ke sesi pembetulan di akhir tahap.',
+                    false
+                  );
+                  l1SeqIndex++;
+                  if (l1SeqIndex >= l1Sequence.length) {
+                    if (l1WrongQueue.length > 0) {
+                      isL1Reviewing = true;
+                      l1Sequence = [...l1WrongQueue];
+                      l1WrongQueue = [];
+                      l1SeqIndex = 0;
+                      callbacksRef.current.onShowFeedback(
+                        `🔄 Sesi Pembetulan (1 Peluang Sahaja): Jawab semula ${l1Sequence.length} soalan yang salah tadi!`,
+                        true
+                      );
+                      spawnWorldElements(0);
+                    } else {
+                      sounds.playVictory();
+                      callbacksRef.current.onVictory({
+                        score: cumulativeScore,
+                        streak,
+                        maxStreak,
+                        correctCount,
+                        wrongCount,
+                        hearts,
+                        maxHearts,
+                        currentQuestionIndex: l1Sequence[0] ?? 0,
+                        totalQuestions: levelConfig.targetQuestions,
+                        level1TotalTimeLeft: l1TotalTimeLeft,
+                        level2Phase: level2PhaseRef.current,
+                        level2TimeLeft: 0,
+                        level3DoorNumber: 1,
+                        orangesCollected,
+                        hasKey: false,
+                        isLevel1ReviewPhase: false,
+                        level1WrongRemaining: 0,
+                      });
+                      return;
+                    }
+                  } else {
+                    spawnWorldElements(l1SeqIndex);
+                  }
+                }
+
+                callbacksRef.current.onUpdateStats({
+                  score: cumulativeScore,
+                  streak,
+                  maxStreak,
+                  correctCount,
+                  wrongCount,
+                  hearts,
+                  maxHearts,
+                  currentQuestionIndex: l1Sequence[l1SeqIndex % l1Sequence.length] ?? 0,
+                  totalQuestions: levelConfig.targetQuestions,
+                  level1TotalTimeLeft: l1TotalTimeLeft,
+                  level2Phase: level2PhaseRef.current,
+                  level2TimeLeft: 0,
+                  level3DoorNumber: 1,
+                  orangesCollected,
+                  hasKey: false,
+                  isLevel1ReviewPhase: isL1Reviewing,
+                  level1WrongRemaining: l1WrongQueue.length + (isL1Reviewing ? Math.max(0, l1Sequence.length - l1SeqIndex) : 0),
+                });
               }
               return;
             }
@@ -772,35 +1029,155 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
                     sounds.playCorrect();
                     createStarBurst(gate.x + gate.width / 2, player.y, '#10B981', 35);
-                    callbacksRef.current.onShowFeedback(`Tepat Sekali! (+${bonus})`, true);
 
-                    if (correctCount >= levelConfig.targetQuestions) {
-                      sounds.playVictory();
-                      callbacksRef.current.onVictory({
-                        score: cumulativeScore,
-                        streak,
-                        maxStreak,
-                        correctCount,
-                        wrongCount,
-                        hearts,
-                        maxHearts,
-                        currentQuestionIndex: qIndex + 1,
-                        totalQuestions: levelConfig.targetQuestions,
-                        level1TotalTimeLeft: l1TotalTimeLeft,
-                        level2Phase: level2PhaseRef.current,
-                        level2TimeLeft: 0,
-                        level3DoorNumber: 1,
-                        orangesCollected,
-                        hasKey: false,
-                      });
-                      return;
-                    }
+                    if (levelConfig.level === 1) {
+                      callbacksRef.current.onShowFeedback(
+                        isL1Reviewing ? `🎉 Pembetulan Berjaya! (+${bonus})` : `Tepat Sekali! (+${bonus})`,
+                        true
+                      );
 
-                    qIndex++;
-                    if (levelConfig.level === 2) {
-                      callbacksRef.current.onTriggerLevel2Study();
+                      l1SeqIndex++;
+                      if (l1SeqIndex >= l1Sequence.length) {
+                        if (isL1Reviewing) {
+                          // Finished review round
+                          sounds.playVictory();
+                          callbacksRef.current.onVictory({
+                            score: cumulativeScore,
+                            streak,
+                            maxStreak,
+                            correctCount,
+                            wrongCount,
+                            hearts,
+                            maxHearts,
+                            currentQuestionIndex: l1Sequence[l1Sequence.length - 1] ?? 4,
+                            totalQuestions: levelConfig.targetQuestions,
+                            level1TotalTimeLeft: l1TotalTimeLeft,
+                            level2Phase: level2PhaseRef.current,
+                            level2TimeLeft: 0,
+                            level3DoorNumber: 1,
+                            orangesCollected,
+                            hasKey: false,
+                            isLevel1ReviewPhase: false,
+                            level1WrongRemaining: 0,
+                          });
+                          return;
+                        } else {
+                          // Finished round 1
+                          if (l1WrongQueue.length === 0) {
+                            sounds.playVictory();
+                            callbacksRef.current.onVictory({
+                              score: cumulativeScore,
+                              streak,
+                              maxStreak,
+                              correctCount,
+                              wrongCount,
+                              hearts,
+                              maxHearts,
+                              currentQuestionIndex: l1Sequence[l1Sequence.length - 1] ?? 4,
+                              totalQuestions: levelConfig.targetQuestions,
+                              level1TotalTimeLeft: l1TotalTimeLeft,
+                              level2Phase: level2PhaseRef.current,
+                              level2TimeLeft: 0,
+                              level3DoorNumber: 1,
+                              orangesCollected,
+                              hasKey: false,
+                              isLevel1ReviewPhase: false,
+                              level1WrongRemaining: 0,
+                            });
+                            return;
+                          } else {
+                            // Start Sesi Pembetulan with 1 chance only!
+                            isL1Reviewing = true;
+                            l1Sequence = [...l1WrongQueue];
+                            l1WrongQueue = [];
+                            l1SeqIndex = 0;
+                            callbacksRef.current.onShowFeedback(
+                              `🔄 Sesi Pembetulan (1 Peluang Sahaja): Sila jawab semula ${l1Sequence.length} soalan yang salah tadi!`,
+                              true
+                            );
+                            spawnWorldElements(0);
+                          }
+                        }
+                      } else {
+                        spawnWorldElements(l1SeqIndex);
+                      }
+                    } else if (levelConfig.level === 2) {
+                      callbacksRef.current.onShowFeedback(
+                        isL2Reviewing ? `🎉 Pembetulan Berjaya! (+${bonus})` : `Tepat Sekali! (+${bonus})`,
+                        true
+                      );
+
+                      l2SeqIndex++;
+                      if (l2SeqIndex >= l2Sequence.length) {
+                        if (isL2Reviewing) {
+                          // Finished review round
+                          sounds.playVictory();
+                          callbacksRef.current.onVictory({
+                            score: cumulativeScore,
+                            streak,
+                            maxStreak,
+                            correctCount,
+                            wrongCount,
+                            hearts,
+                            maxHearts,
+                            currentQuestionIndex: l2Sequence[l2Sequence.length - 1] ?? 4,
+                            totalQuestions: levelConfig.targetQuestions,
+                            level1TotalTimeLeft: l1TotalTimeLeft,
+                            level2Phase: level2PhaseRef.current,
+                            level2TimeLeft: 0,
+                            level3DoorNumber: 1,
+                            orangesCollected,
+                            hasKey: false,
+                            isLevel2ReviewPhase: false,
+                            level2WrongRemaining: 0,
+                          });
+                          return;
+                        } else {
+                          // Finished round 1
+                          if (l2WrongQueue.length === 0) {
+                            sounds.playVictory();
+                            callbacksRef.current.onVictory({
+                              score: cumulativeScore,
+                              streak,
+                              maxStreak,
+                              correctCount,
+                              wrongCount,
+                              hearts,
+                              maxHearts,
+                              currentQuestionIndex: l2Sequence[l2Sequence.length - 1] ?? 4,
+                              totalQuestions: levelConfig.targetQuestions,
+                              level1TotalTimeLeft: l1TotalTimeLeft,
+                              level2Phase: level2PhaseRef.current,
+                              level2TimeLeft: 0,
+                              level3DoorNumber: 1,
+                              orangesCollected,
+                              hasKey: false,
+                              isLevel2ReviewPhase: false,
+                              level2WrongRemaining: 0,
+                            });
+                            return;
+                          } else {
+                            isL2Reviewing = true;
+                            l2Sequence = [...l2WrongQueue];
+                            l2WrongQueue = [];
+                            l2SeqIndex = 0;
+                            callbacksRef.current.onShowFeedback(
+                              `🔄 Sesi Pembetulan (1 Peluang Sahaja & 30 Saat): Sila jawab semula ${l2Sequence.length} soalan yang salah tadi!`,
+                              true
+                            );
+                            level2PhaseRef.current = 'STUDY';
+                            player.vy = 0;
+                            callbacksRef.current.onTriggerLevel2Study(true);
+                            spawnWorldElements(0);
+                          }
+                        }
+                      } else {
+                        level2PhaseRef.current = 'STUDY';
+                        player.vy = 0;
+                        callbacksRef.current.onTriggerLevel2Study(isL2Reviewing);
+                        spawnWorldElements(l2SeqIndex);
+                      }
                     }
-                    spawnWorldElements(qIndex);
                   } else {
                     if (player.invulnerableTime <= 0) {
                       wrongCount++;
@@ -813,10 +1190,6 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
 
                       sounds.playWrong();
                       createStarBurst(gate.x + gate.width / 2, player.y, '#EF4444', 25);
-                      callbacksRef.current.onShowFeedback(
-                        `Jawapan Kurang Tepat! -1 Nyawa. Sila kira semula!`,
-                        false
-                      );
 
                       if (hearts <= 0) {
                         sounds.playGameOver();
@@ -829,7 +1202,7 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                             wrongCount,
                             hearts: 0,
                             maxHearts,
-                            currentQuestionIndex: qIndex,
+                            currentQuestionIndex: levelConfig.level === 2 ? (l2Sequence[l2SeqIndex] ?? 0) : (l1Sequence[l1SeqIndex] ?? 0),
                             totalQuestions: levelConfig.targetQuestions,
                             level1TotalTimeLeft: l1TotalTimeLeft,
                             level2Phase: level2PhaseRef.current,
@@ -844,11 +1217,193 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                       }
 
                       if (levelConfig.level === 2) {
-                        callbacksRef.current.onTriggerLevel2Study();
+                        if (isL2Reviewing) {
+                          // Review mode: ONLY 1 CHANCE! Do NOT re-add to queue.
+                          callbacksRef.current.onShowFeedback(
+                            'Jawapan Kurang Tepat (-1 Nyawa). Peluang pembetulan soalan ini tamat.',
+                            false
+                          );
+
+                          l2SeqIndex++;
+                          if (l2SeqIndex >= l2Sequence.length) {
+                            // Finished all review questions!
+                            sounds.playVictory();
+                            callbacksRef.current.onVictory({
+                              score: cumulativeScore,
+                              streak,
+                              maxStreak,
+                              correctCount,
+                              wrongCount,
+                              hearts,
+                              maxHearts,
+                              currentQuestionIndex: l2Sequence[l2Sequence.length - 1] ?? 4,
+                              totalQuestions: levelConfig.targetQuestions,
+                              level1TotalTimeLeft: l1TotalTimeLeft,
+                              level2Phase: level2PhaseRef.current,
+                              level2TimeLeft: 0,
+                              level3DoorNumber: 1,
+                              orangesCollected,
+                              hasKey: false,
+                              isLevel2ReviewPhase: false,
+                              level2WrongRemaining: 0,
+                            });
+                            return;
+                          } else {
+                            level2PhaseRef.current = 'STUDY';
+                            player.vy = 0;
+                            callbacksRef.current.onTriggerLevel2Study(true);
+                            spawnWorldElements(l2SeqIndex);
+                          }
+                        } else {
+                          // User request: continue to next question, re-open wrong questions at the end of Level 2
+                          const wrongQIndex = l2Sequence[l2SeqIndex];
+                          if (!l2WrongQueue.includes(wrongQIndex)) {
+                            l2WrongQueue.push(wrongQIndex);
+                          }
+                          callbacksRef.current.onShowFeedback(
+                            'Jawapan Kurang Tepat (-1 Nyawa). Teruskan, soalan ini akan dibuka semula di akhir tahap!',
+                            false
+                          );
+
+                          l2SeqIndex++;
+                          if (l2SeqIndex >= l2Sequence.length) {
+                            if (l2WrongQueue.length > 0) {
+                              isL2Reviewing = true;
+                              l2Sequence = [...l2WrongQueue];
+                              l2WrongQueue = [];
+                              l2SeqIndex = 0;
+                              callbacksRef.current.onShowFeedback(
+                                `🔄 Sesi Pembetulan (1 Peluang Sahaja & 30 Saat): Sila jawab semula ${l2Sequence.length} soalan yang salah tadi!`,
+                                true
+                              );
+                              level2PhaseRef.current = 'STUDY';
+                              player.vy = 0;
+                              callbacksRef.current.onTriggerLevel2Study(true);
+                              spawnWorldElements(0);
+                            } else {
+                              sounds.playVictory();
+                              callbacksRef.current.onVictory({
+                                score: cumulativeScore,
+                                streak,
+                                maxStreak,
+                                correctCount,
+                                wrongCount,
+                                hearts,
+                                maxHearts,
+                                currentQuestionIndex: l2Sequence[l2Sequence.length - 1] ?? 4,
+                                totalQuestions: levelConfig.targetQuestions,
+                                level1TotalTimeLeft: l1TotalTimeLeft,
+                                level2Phase: level2PhaseRef.current,
+                                level2TimeLeft: 0,
+                                level3DoorNumber: 1,
+                                orangesCollected,
+                                hasKey: false,
+                                isLevel2ReviewPhase: false,
+                                level2WrongRemaining: 0,
+                              });
+                              return;
+                            }
+                          } else {
+                            level2PhaseRef.current = 'STUDY';
+                            player.vy = 0;
+                            callbacksRef.current.onTriggerLevel2Study(false);
+                            spawnWorldElements(l2SeqIndex);
+                          }
+                        }
+                      } else if (levelConfig.level === 1) {
+                        if (isL1Reviewing) {
+                          // Review mode: ONLY 1 CHANCE! Do NOT re-add to queue.
+                          callbacksRef.current.onShowFeedback(
+                            'Jawapan Kurang Tepat (-1 Nyawa). Peluang pembetulan soalan ini tamat.',
+                            false
+                          );
+
+                          l1SeqIndex++;
+                          if (l1SeqIndex >= l1Sequence.length) {
+                            // Finished all review questions!
+                            sounds.playVictory();
+                            callbacksRef.current.onVictory({
+                              score: cumulativeScore,
+                              streak,
+                              maxStreak,
+                              correctCount,
+                              wrongCount,
+                              hearts,
+                              maxHearts,
+                              currentQuestionIndex: l1Sequence[l1Sequence.length - 1] ?? 4,
+                              totalQuestions: levelConfig.targetQuestions,
+                              level1TotalTimeLeft: l1TotalTimeLeft,
+                              level2Phase: level2PhaseRef.current,
+                              level2TimeLeft: 0,
+                              level3DoorNumber: 1,
+                              orangesCollected,
+                              hasKey: false,
+                              isLevel1ReviewPhase: false,
+                              level1WrongRemaining: 0,
+                            });
+                            return;
+                          } else {
+                            spawnWorldElements(l1SeqIndex);
+                          }
+                        } else {
+                          // Round 1: queue for review, do not stick on same question!
+                          const wrongQIndex = l1Sequence[l1SeqIndex];
+                          if (!l1WrongQueue.includes(wrongQIndex)) {
+                            l1WrongQueue.push(wrongQIndex);
+                          }
+                          callbacksRef.current.onShowFeedback(
+                            'Jawapan Kurang Tepat (-1 Nyawa). Teruskan, soalan ini akan dibuka semula di akhir tahap!',
+                            false
+                          );
+
+                          l1SeqIndex++;
+                          if (l1SeqIndex >= l1Sequence.length) {
+                            if (l1WrongQueue.length > 0) {
+                              isL1Reviewing = true;
+                              l1Sequence = [...l1WrongQueue];
+                              l1WrongQueue = [];
+                              l1SeqIndex = 0;
+                              callbacksRef.current.onShowFeedback(
+                                `🔄 Sesi Pembetulan (1 Peluang Sahaja): Sila jawab semula ${l1Sequence.length} soalan yang salah tadi!`,
+                                true
+                              );
+                              spawnWorldElements(0);
+                            } else {
+                              sounds.playVictory();
+                              callbacksRef.current.onVictory({
+                                score: cumulativeScore,
+                                streak,
+                                maxStreak,
+                                correctCount,
+                                wrongCount,
+                                hearts,
+                                maxHearts,
+                                currentQuestionIndex: l1Sequence[l1Sequence.length - 1] ?? 4,
+                                totalQuestions: levelConfig.targetQuestions,
+                                level1TotalTimeLeft: l1TotalTimeLeft,
+                                level2Phase: level2PhaseRef.current,
+                                level2TimeLeft: 0,
+                                level3DoorNumber: 1,
+                                orangesCollected,
+                                hasKey: false,
+                                isLevel1ReviewPhase: false,
+                                level1WrongRemaining: 0,
+                              });
+                              return;
+                            }
+                          } else {
+                            spawnWorldElements(l1SeqIndex);
+                          }
+                        }
                       }
-                      spawnWorldElements(qIndex);
                     }
                   }
+
+                  const activeIdxForHUD = levelConfig.level === 1
+                    ? (l1Sequence[l1SeqIndex % l1Sequence.length] ?? 0)
+                    : levelConfig.level === 2
+                    ? (l2Sequence[l2SeqIndex % l2Sequence.length] ?? 0)
+                    : 0;
 
                   callbacksRef.current.onUpdateStats({
                     score: cumulativeScore,
@@ -858,14 +1413,18 @@ export const GameCanvas: React.FC<GameCanvasProps> = ({
                     wrongCount,
                     hearts,
                     maxHearts,
-                    currentQuestionIndex: qIndex,
+                    currentQuestionIndex: activeIdxForHUD,
                     totalQuestions: levelConfig.targetQuestions,
                     level1TotalTimeLeft: l1TotalTimeLeft,
                     level2Phase: level2PhaseRef.current,
-                    level2TimeLeft: 0,
+                    level2TimeLeft: level2PhaseRef.current === 'STUDY' ? (isL2Reviewing ? 30 : 60) : 0,
                     level3DoorNumber: 1,
                     orangesCollected,
                     hasKey: false,
+                    isLevel1ReviewPhase: isL1Reviewing,
+                    level1WrongRemaining: l1WrongQueue.length + (isL1Reviewing ? Math.max(0, l1Sequence.length - l1SeqIndex) : 0),
+                    isLevel2ReviewPhase: isL2Reviewing,
+                    level2WrongRemaining: l2WrongQueue.length + (isL2Reviewing ? Math.max(0, l2Sequence.length - l2SeqIndex) : 0),
                   });
                   break;
                 }

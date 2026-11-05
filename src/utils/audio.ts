@@ -319,21 +319,195 @@ class SoundEngine {
     } catch {}
   }
 
-  playVictory() {
+  // Energetic snare drum roll crescendo followed by booming bass impact and crash cymbal!
+  playDrumRoll() {
     if (this.isMuted) return;
     this.initCtx();
     if (!this.ctx) return;
 
     try {
       const now = this.ctx.currentTime;
+
+      // 1. Snare drum roll: 16 rapid crisp hits that crescendo
+      const numHits = 16;
+      for (let i = 0; i < numHits; i++) {
+        const hitProgress = i / (numHits - 1);
+        const hitTime = now + (i * 0.042) * (1 - hitProgress * 0.25);
+        const hitGain = 0.08 + hitProgress * 0.38;
+
+        const bufferSize = Math.floor(this.ctx.sampleRate * 0.05);
+        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let j = 0; j < bufferSize; j++) {
+          data[j] = Math.random() * 2 - 1;
+        }
+
+        const noise = this.ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const noiseFilter = this.ctx.createBiquadFilter();
+        noiseFilter.type = 'bandpass';
+        noiseFilter.frequency.setValueAtTime(1900 + hitProgress * 400, hitTime);
+        noiseFilter.Q.setValueAtTime(1.8, hitTime);
+
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(hitGain, hitTime);
+        noiseGain.gain.exponentialRampToValueAtTime(0.001, hitTime + 0.045);
+
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(this.getDestination());
+
+        noise.start(hitTime);
+        noise.stop(hitTime + 0.05);
+
+        const osc = this.ctx.createOscillator();
+        const oscGain = this.ctx.createGain();
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(195 + hitProgress * 40, hitTime);
+        oscGain.gain.setValueAtTime(hitGain * 0.45, hitTime);
+        oscGain.gain.exponentialRampToValueAtTime(0.001, hitTime + 0.035);
+
+        osc.connect(oscGain);
+        oscGain.connect(this.getDestination());
+
+        osc.start(hitTime);
+        osc.stop(hitTime + 0.04);
+      }
+
+      // 2. Climax Drum Boom (Timpani & Bass drum) at roll finish
+      const climaxTime = now + 0.62;
+      const bassOsc = this.ctx.createOscillator();
+      const bassGain = this.ctx.createGain();
+      bassOsc.type = 'sine';
+      bassOsc.frequency.setValueAtTime(140, climaxTime);
+      bassOsc.frequency.exponentialRampToValueAtTime(42, climaxTime + 0.45);
+
+      bassGain.gain.setValueAtTime(0.55, climaxTime);
+      bassGain.gain.exponentialRampToValueAtTime(0.001, climaxTime + 0.55);
+
+      bassOsc.connect(bassGain);
+      bassGain.connect(this.getDestination());
+      bassOsc.start(climaxTime);
+      bassOsc.stop(climaxTime + 0.6);
+
+      // Crash Cymbal shimmer
+      const cymbalSize = Math.floor(this.ctx.sampleRate * 0.5);
+      const cymbalBuffer = this.ctx.createBuffer(1, cymbalSize, this.ctx.sampleRate);
+      const cData = cymbalBuffer.getChannelData(0);
+      for (let k = 0; k < cymbalSize; k++) {
+        cData[k] = Math.random() * 2 - 1;
+      }
+      const cymbal = this.ctx.createBufferSource();
+      cymbal.buffer = cymbalBuffer;
+      const cymbalFilter = this.ctx.createBiquadFilter();
+      cymbalFilter.type = 'highpass';
+      cymbalFilter.frequency.setValueAtTime(4500, climaxTime);
+
+      const cymbalGain = this.ctx.createGain();
+      cymbalGain.gain.setValueAtTime(0.35, climaxTime);
+      cymbalGain.gain.exponentialRampToValueAtTime(0.001, climaxTime + 0.5);
+
+      cymbal.connect(cymbalFilter);
+      cymbalFilter.connect(cymbalGain);
+      cymbalGain.connect(this.getDestination());
+
+      cymbal.start(climaxTime);
+      cymbal.stop(climaxTime + 0.52);
+    } catch {}
+  }
+
+  // Cheerful, joyous "Yippee!" sound synthesized with rising vocal formant frequencies!
+  playYippee(delay: number = 0) {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    try {
+      const now = this.ctx.currentTime + delay;
+
+      // Vocal formant 1: "Yip" (~540Hz) sweeping up to joyful "peeeee!" (~1180Hz)
+      const osc1 = this.ctx.createOscillator();
+      const gain1 = this.ctx.createGain();
+      osc1.type = 'sawtooth';
+      osc1.frequency.setValueAtTime(540, now);
+      osc1.frequency.linearRampToValueAtTime(620, now + 0.1);
+      osc1.frequency.exponentialRampToValueAtTime(1180, now + 0.35);
+      osc1.frequency.linearRampToValueAtTime(1260, now + 0.65);
+
+      const filter1 = this.ctx.createBiquadFilter();
+      filter1.type = 'bandpass';
+      filter1.frequency.setValueAtTime(700, now);
+      filter1.frequency.linearRampToValueAtTime(1300, now + 0.35);
+      filter1.Q.setValueAtTime(2.5, now);
+
+      gain1.gain.setValueAtTime(0.01, now);
+      gain1.gain.linearRampToValueAtTime(0.38, now + 0.08);
+      gain1.gain.setValueAtTime(0.38, now + 0.45);
+      gain1.gain.exponentialRampToValueAtTime(0.001, now + 0.72);
+
+      osc1.connect(filter1);
+      filter1.connect(gain1);
+      gain1.connect(this.getDestination());
+
+      osc1.start(now);
+      osc1.stop(now + 0.75);
+
+      // Cheerful high harmonic chime bells for extra celebration
+      const chimeFreqs = [1046.5, 1318.5, 1567.98, 2093.0, 2637.0];
+      chimeFreqs.forEach((freq, idx) => {
+        if (!this.ctx) return;
+        const chime = this.ctx.createOscillator();
+        const cGain = this.ctx.createGain();
+        const t = now + 0.18 + idx * 0.07;
+
+        chime.type = 'sine';
+        chime.frequency.setValueAtTime(freq, t);
+
+        cGain.gain.setValueAtTime(0, t);
+        cGain.gain.linearRampToValueAtTime(0.28, t + 0.02);
+        cGain.gain.exponentialRampToValueAtTime(0.001, t + 0.32);
+
+        chime.connect(cGain);
+        cGain.connect(this.getDestination());
+
+        chime.start(t);
+        chime.stop(t + 0.35);
+      });
+    } catch {}
+  }
+
+  private lastVictoryTime: number = 0;
+
+  // Grand celebratory level completion: Drum roll crescendo + "YIPPEEE!" + Triumphant Brass Fanfare!
+  playVictory() {
+    if (this.isMuted) return;
+    this.initCtx();
+    if (!this.ctx) return;
+
+    try {
+      const curTime = this.ctx.currentTime;
+      if (curTime - this.lastVictoryTime < 2.5) {
+        return;
+      }
+      this.lastVictoryTime = curTime;
+
+      // 1. Energetic drum roll crescendo
+      this.playDrumRoll();
+
+      // 2. Jubilant "Yippee!" voice exclamation right as drum reaches climax!
+      this.playYippee(0.55);
+
+      // 3. Grand Triumphant Brass Fanfare
+      const now = this.ctx.currentTime + 0.65;
       const fanfare = [
-        { f: 523.25, d: 0.12, t: 0.0 },
-        { f: 659.25, d: 0.12, t: 0.12 },
-        { f: 783.99, d: 0.12, t: 0.24 },
-        { f: 1046.5, d: 0.35, t: 0.36 },
-        { f: 880.00, d: 0.18, t: 0.75 },
-        { f: 1046.5, d: 0.60, t: 0.95 },
-        { f: 1318.5, d: 0.80, t: 1.55 },
+        { f: 523.25, d: 0.14, t: 0.0 }, // C5
+        { f: 659.25, d: 0.14, t: 0.14 }, // E5
+        { f: 783.99, d: 0.14, t: 0.28 }, // G5
+        { f: 1046.5, d: 0.38, t: 0.42 }, // C6
+        { f: 880.00, d: 0.18, t: 0.85 }, // A5
+        { f: 1046.5, d: 0.55, t: 1.05 }, // C6
+        { f: 1318.5, d: 0.85, t: 1.62 }, // E6
       ];
 
       fanfare.forEach((n) => {

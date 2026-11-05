@@ -3,6 +3,7 @@ import confetti from 'canvas-confetti';
 import { GameStats, LevelConfig } from '../types/game';
 import { CapybaraDuckIllustration } from './CapybaraDuckIllustration';
 import { Trophy, Star, Sparkles, RotateCcw, ArrowRight, Layers, Clock, Heart, Home } from 'lucide-react';
+import { sounds } from '../utils/audio';
 
 interface VictoryModalProps {
   stats: GameStats;
@@ -26,6 +27,7 @@ export const VictoryModal: React.FC<VictoryModalProps> = ({
   playerName = 'Pemain',
 }) => {
   useEffect(() => {
+    sounds.playVictory();
     try {
       const count = 200;
       const defaults = { origin: { y: 0.7 } };

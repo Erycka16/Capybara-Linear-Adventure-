@@ -41,9 +41,9 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         <div className="absolute inset-0 bg-gradient-to-b from-sky-950/20 via-transparent to-amber-950/30 pointer-events-none" />
       </div>
 
-      {/* TOP BAR: Controls & Malaysian Math Badge */}
-      <div className="relative z-10 w-full max-w-5xl mx-auto flex items-center justify-between">
-        {/* Left Action Buttons: Level/Settings & Sound */}
+      {/* TOP BAR: Controls & Malaysian Math Badge & Install PWA */}
+      <div className="relative z-10 w-full max-w-5xl mx-auto flex items-center justify-between gap-2">
+        {/* Left Action Buttons: Level/Settings, Sound, & Install */}
         <div className="flex items-center gap-2">
           {/* Level Select / Settings Button */}
           <button
@@ -69,7 +69,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
         </div>
 
         {/* Right Badge: Malaysian Flag & Subject */}
-        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/75 backdrop-blur-xs border border-amber-400/50 text-white font-extrabold text-[11px] sm:text-xs shadow-md">
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-950/75 backdrop-blur-xs border border-amber-400/50 text-white font-extrabold text-[11px] sm:text-xs shadow-md shrink-0">
           <span>🇲🇾 Matematik KSSM · Persamaan Linear</span>
         </div>
       </div>
@@ -112,7 +112,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
 
         {/* INTERACTIVE CONTROLS CARD */}
         <div className="w-full flex flex-col items-center gap-2">
-          {/* Player Name Input Card with Clear & Delete Rekod Buttons */}
+          {/* Player Name Input Card */}
           <div className="w-full relative bg-gradient-to-b from-amber-500 via-amber-600 to-amber-800 p-2 sm:p-2.5 rounded-2xl border-3 border-amber-900 shadow-lg">
             {/* Header Tag: NAMA PEMAIN */}
             <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-gradient-to-r from-amber-600 via-amber-500 to-amber-600 border-2 border-amber-800 px-3 py-0.5 rounded-full shadow-md text-[10px] sm:text-[11px] font-black text-amber-950 uppercase tracking-wider flex items-center gap-1.5 whitespace-nowrap">
@@ -226,6 +226,7 @@ export const TitleScreen: React.FC<TitleScreenProps> = ({
           onStartGame={onStartGame}
         />
       )}
+
     </div>
   );
 };

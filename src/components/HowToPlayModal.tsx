@@ -61,7 +61,7 @@ export const HowToPlayModal: React.FC<HowToPlayModalProps> = ({ onClose, onStart
                 <span>Tahap 2: Bentuk Persamaan</span>
               </div>
               <p className="text-[11px] text-blue-800 leading-tight">
-                Masa 10 saat meneliti setiap soalan baharu sebelum mula terbang. Pilihan jawapan dipaparkan besar & kemas.
+                Masa 1 minit meneliti setiap soalan baharu. Sekiranya salah, teruskan menjawab dan soalan salah akan dibuka semula di akhir permainan.
               </p>
             </div>
 

@@ -84,7 +84,7 @@ export const LevelSelectModal: React.FC<LevelSelectModalProps> = ({
                     {lvl === 2 && (
                       <div className="flex items-center gap-2 text-blue-800 font-semibold">
                         <Sparkles className="w-4 h-4 text-blue-600 shrink-0" />
-                        <span>10s Teliti Soalan Baharu Sebelum Terbang</span>
+                        <span>1 Minit Teliti Soalan (Soalan salah dibuka semula di akhir) 🧠</span>
                       </div>
                     )}
                     {lvl === 3 && (

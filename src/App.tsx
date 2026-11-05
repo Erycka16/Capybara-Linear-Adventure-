@@ -56,9 +56,11 @@ export default function App() {
   const [isSpeedBoostActive, setIsSpeedBoostActive] = useState(false);
   const [isSlowBoostActive, setIsSlowBoostActive] = useState(false);
 
-  // Level 2 special study timer: 10 seconds per new question
+  // Level 2 special study timer: 1 minit (60 saat) per new question
+  const LEVEL_2_STUDY_TIME = 60;
   const [level2Phase, setLevel2Phase] = useState<Level2Phase>('STUDY');
-  const [level2TimeLeft, setLevel2TimeLeft] = useState<number>(10);
+  const [level2TimeLeft, setLevel2TimeLeft] = useState<number>(LEVEL_2_STUDY_TIME);
+  const [gameSessionId, setGameSessionId] = useState<number>(() => Date.now());
 
   // Level 3 Classroom state
   const [isClassroomOpen, setIsClassroomOpen] = useState(false);
@@ -114,7 +116,7 @@ export default function App() {
     totalQuestions: levelConfig.targetQuestions,
     level1TotalTimeLeft: 120, // Exactly 2 minutes (120 seconds) as requested!
     level2Phase: 'STUDY',
-    level2TimeLeft: 10,
+    level2TimeLeft: LEVEL_2_STUDY_TIME,
     level3DoorNumber: 1,
     orangesCollected: 0,
     hasKey: false,
@@ -263,6 +265,7 @@ export default function App() {
   const doStartGame = useCallback((lvl: number) => {
     // Shuffle question options every time a game starts or completes!
     shuffleAllQuestions();
+    setGameSessionId(Date.now());
 
     const validLevel = (lvl >= 1 && lvl <= 3 ? lvl : 1) as LevelDifficulty;
     setSelectedLevel(validLevel);
@@ -275,7 +278,7 @@ export default function App() {
 
     const initialLevel2Phase: Level2Phase = validLevel === 2 ? 'STUDY' : 'FLYING';
     setLevel2Phase(initialLevel2Phase);
-    setLevel2TimeLeft(10); // 10s study
+    setLevel2TimeLeft(LEVEL_2_STUDY_TIME); // 3 minit meneliti
 
     setStats({
       score: 0,
@@ -289,7 +292,7 @@ export default function App() {
       totalQuestions: LEVEL_CONFIGS[validLevel].targetQuestions,
       level1TotalTimeLeft: 120, // Exactly 2 min
       level2Phase: initialLevel2Phase,
-      level2TimeLeft: 10,
+      level2TimeLeft: LEVEL_2_STUDY_TIME,
       level3DoorNumber: 1,
       orangesCollected: 0,
       hasKey: false,
@@ -334,16 +337,16 @@ export default function App() {
     });
   }, [showFeedback]);
 
-  // Level 2: 10s study timer
-  const advanceLevel2Phase = useCallback((nextPhase: Level2Phase) => {
+  // Level 2: 1-minute (60s) study timer, or 30s for correction review
+  const advanceLevel2Phase = useCallback((nextPhase: Level2Phase, isReview = false) => {
     setLevel2Phase(nextPhase);
-    if (nextPhase === 'STUDY') setLevel2TimeLeft(10);
+    if (nextPhase === 'STUDY') setLevel2TimeLeft(isReview ? 30 : LEVEL_2_STUDY_TIME);
     else setLevel2TimeLeft(0);
   }, []);
 
-  const handleTriggerLevel2Study = useCallback(() => {
+  const handleTriggerLevel2Study = useCallback((isReview = false) => {
     setLevel2Phase('STUDY');
-    setLevel2TimeLeft(10);
+    setLevel2TimeLeft(isReview ? 30 : LEVEL_2_STUDY_TIME);
   }, []);
 
   const handleSkipLevel2Phase = useCallback(() => {
@@ -387,6 +390,18 @@ export default function App() {
     });
   }, []);
 
+  // Level 3: Door failed on wrong answer - close classroom, reset oranges, return to flight!
+  const handleDoorFailed = useCallback((reason: string) => {
+    triggerScreenTransition(() => {
+      setIsClassroomOpen(false);
+    }, 'Kembali ke Langit...');
+    showFeedback(reason, false);
+    setStats((prev) => ({
+      ...prev,
+      orangesCollected: 0,
+    }));
+  }, [triggerScreenTransition, showFeedback]);
+
   // Solve Door and unlock exit with Golden Key
   const handleSolveDoor = useCallback((doorNum: number) => {
     // Save individual door achievement in doorRecords for the scoreboard!
@@ -413,42 +428,38 @@ export default function App() {
       return newUnlocked;
     });
 
-    setStats((prev) => {
-      const nextCorrect = prev.correctCount + 1;
-      const nextScore = prev.score + 300;
-      const nextDoor = doorNum + 1;
-
-      if (doorNum >= 4) {
-        sounds.playVictory();
-        checkAndSaveRecords(3, nextScore);
-        triggerScreenTransition(() => {
-          setIsClassroomOpen(false);
-          setStatus('VICTORY');
-        }, 'Menamatkan Tahap 3: Tahniah!');
-        return {
-          ...prev,
-          correctCount: nextCorrect,
-          score: nextScore,
-          orangesCollected: 0,
-        };
-      }
-
-      showFeedback(`🔑 Pintu ${doorNum} Dibuka dengan Kunci Emas! Terbang & Kumpul Oren Untuk Pintu ${nextDoor}!`, true);
-      setCurrentDoorNum(nextDoor);
+    if (doorNum >= 4) {
+      sounds.playVictory();
+      checkAndSaveRecords(3, stats.score + 300);
+      setStats((prev) => ({
+        ...prev,
+        correctCount: prev.correctCount + 1,
+        score: prev.score + 300,
+        orangesCollected: 0,
+      }));
       triggerScreenTransition(() => {
         setIsClassroomOpen(false);
-      }, 'Kembali ke Dunia Penerbangan...');
+        setStatus('VICTORY');
+      }, 'Menamatkan Tahap 3: Tahniah!');
+      return;
+    }
 
-      return {
-        ...prev,
-        correctCount: nextCorrect,
-        score: nextScore,
-        level3DoorNumber: nextDoor,
-        orangesCollected: 0,
-        currentQuestionIndex: nextDoor - 1,
-      };
-    });
-  }, [checkAndSaveRecords, showFeedback, triggerScreenTransition]);
+    const nextDoor = doorNum + 1;
+    setCurrentDoorNum(nextDoor);
+    setStats((prev) => ({
+      ...prev,
+      correctCount: prev.correctCount + 1,
+      score: prev.score + 300,
+      level3DoorNumber: nextDoor,
+      orangesCollected: 0,
+      currentQuestionIndex: nextDoor - 1,
+    }));
+
+    showFeedback(`🔑 Pintu ${doorNum} Dibuka dengan Kunci Emas! Terbang & Kumpul Oren Untuk Pintu ${nextDoor}!`, true);
+    triggerScreenTransition(() => {
+      setIsClassroomOpen(false);
+    }, `Kembali ke Langit Menuju Pintu ${nextDoor}...`);
+  }, [checkAndSaveRecords, showFeedback, triggerScreenTransition, stats.score]);
 
   // Game Over
   const handleGameOver = useCallback((finalStats: GameStats, reason?: string) => {
@@ -461,6 +472,7 @@ export default function App() {
 
   // Victory
   const handleVictory = useCallback((finalStats: GameStats) => {
+    sounds.playVictory();
     shuffleAllQuestions();
     setStats(finalStats);
     const timeUsed = selectedLevel === 1 ? (120 - finalStats.level1TotalTimeLeft) : undefined;
@@ -550,7 +562,7 @@ export default function App() {
       {(status === 'PLAYING' || status === 'PAUSED' || status === 'VICTORY' || status === 'GAME_OVER') && !isClassroomOpen && (
         <>
           <GameCanvas
-            key={`canvas_${selectedLevel}_${currentDoorNum}`}
+            key={`canvas_${selectedLevel}_${currentDoorNum}_${gameSessionId}`}
             levelConfig={levelConfig}
             status={status}
             initialScore={stats.score}
@@ -565,6 +577,7 @@ export default function App() {
             onTriggerLevel2Study={handleTriggerLevel2Study}
             level2Phase={level2Phase}
             level3DoorNumber={currentDoorNum}
+            isClassroomOpen={isClassroomOpen}
           />
 
           {/* HUD Overlay */}
@@ -598,9 +611,11 @@ export default function App() {
       {isClassroomOpen && (
         <ClassroomModal
           question={getActiveLevel3Data()[(currentDoorNum - 1) % getActiveLevel3Data().length]}
+          currentDoorNum={currentDoorNum}
           hearts={stats.hearts}
           onDeductHeart={handleClassroomDeductHeart}
           onSolveDoor={handleSolveDoor}
+          onDoorFailed={handleDoorFailed}
           onGoHome={handleGoHome}
         />
       )}
@@ -652,7 +667,7 @@ export default function App() {
           isMuted={isMuted}
           onResume={handleResume}
           onRestart={restartLevel}
-          onOpenLevelSelect={() => setIsLevelSelectOpen(true)}
+          onSelectLevel={(lvl) => startGame(lvl)}
           onGoHome={handleGoHome}
           onToggleMute={handleToggleMute}
         />

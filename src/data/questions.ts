@@ -19,8 +19,8 @@ export const LEVEL_CONFIGS: Record<number, LevelConfig> = {
   2: {
     level: 2,
     title: 'Tahap 2: Bentukkan Persamaan Linear Dari Ayat',
-    subtitle: '10 Saat Meneliti Setiap Soalan Baharu 🧠',
-    description: '5 nyawa. Diberikan masa 10 saat untuk meneliti dan memahami setiap soalan baharu sebelum mula terbang! Petak jawapan kini lebih besar dan jelas.',
+    subtitle: '1 Minit Meneliti Setiap Soalan Baharu 🧠',
+    description: '5 nyawa. Diberikan masa 1 minit (60 saat) untuk meneliti soalan sebelum mula terbang! Jika jawapan salah, teruskan menjawab dan soalan itu akan dibuka semula di akhir permainan.',
     color: '#3B82F6',
     bgGradient: 'from-blue-500 via-sky-300 to-amber-100',
     targetQuestions: 5,
@@ -116,9 +116,9 @@ export const LEVEL_2_DATA: Level2Question[] = [
     id: 'l2_2',
     story: 'Pada Hari Keusahawanan di sebuah sekolah, 800 naskhah kupon telah dijual. Harga senaskhah kupon masing-masing ialah RM30 (x) dan RM50 (y). Jumlah wang yang diperoleh ialah RM30,000.',
     question: 'Bentukkan pasangan persamaan linear yang tepat:',
-    options: ['x + y = 3000, 30x + 50y = 800', 'x + y = 800, 3x + 5y = 3000', 'x + y = 800, 5x + 3y = 3000'],
+    options: ['x + y = 3000, 30x + 50y = 800', 'x + y = 800, 30x + 50y = 30000', 'x + y = 800, 50x + 30y = 30000'],
     correctIndex: 1,
-    explanation: 'Jumlah kupon: x + y = 800. Jumlah jualan: 30x + 50y = 30000 ⇒ 3x + 5y = 3000.',
+    explanation: 'Jumlah kupon: x + y = 800. Jumlah jualan: 30x + 50y = 30000 (atau dipermudahkan menjadi 3x + 5y = 3000).',
   },
   {
     id: 'l2_3',
@@ -140,9 +140,9 @@ export const LEVEL_2_DATA: Level2Question[] = [
     id: 'l2_5',
     story: 'Katakan umur ayah Devaki sekarang adalah X dan umur Devaki sekarang adalah Y. Selepas enam tahun, umur ayah Devaki adalah tiga kali umur Devaki. Jika pada dua tahun yang lalu, umur ayah Devaki adalah tujuh kali umur Devaki.',
     question: 'Bentukkan pasangan persamaan linear berikut:',
-    options: ['x - 3y = 12, x - 7y = 12', 'x + 3y = 12, x + 7y = 12', '3x - y = 12, 7x - y = 12'],
+    options: ['x - 3y = 12, x - 7y = -12', 'x + 3y = 12, x + 7y = 12', '3x - y = 12, 7x - y = 12'],
     correctIndex: 0,
-    explanation: 'X + 6 = 3(Y + 6) ⇒ X - 3Y = 12. X - 2 = 7(Y - 2) ⇒ X - 7Y = 12.',
+    explanation: 'Selepas 6 tahun: X + 6 = 3(Y + 6) ⇒ X - 3Y = 12. Dua tahun lalu: X - 2 = 7(Y - 2) ⇒ X - 7Y = -12 (atau 7Y - X = 12).',
   },
 ];
 
